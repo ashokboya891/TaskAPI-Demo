@@ -35,7 +35,8 @@ namespace ApiForAngular.Services
         new Claim(JwtRegisteredClaimNames.Iat, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString()), // Issued at
         new Claim(ClaimTypes.NameIdentifier, user.Email?? throw new ArgumentNullException("Email cannot be null for identifier")), // Unique name identifier of the user (Email)
         new Claim(ClaimTypes.Email, user.Email ?? throw new ArgumentNullException("Email cannot be null")), // Email of the user
-        new Claim(ClaimTypes.Name, user.Id.ToString())
+        new Claim(ClaimTypes.Name, user.Id.ToString()),
+         new Claim(ClaimTypes.Name, user.Id.ToString())
 
      };
 
