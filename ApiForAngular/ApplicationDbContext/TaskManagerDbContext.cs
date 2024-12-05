@@ -27,27 +27,69 @@ namespace ApiForAngular.ApplicationDbContext
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
-
-            // Configure Tasks CreatedByUser foreign key relationship
+            // Configure the relationship between Tasks and TaskStatusDetails
             modelBuilder.Entity<Tasks>()
-                .HasOne(t => t.CreatedByUser)
-                .WithMany() // This assumes the user has many tasks created
-                .HasForeignKey(t => t.CreatedBy)
-                .OnDelete(DeleteBehavior.Restrict);  // Use Restrict to avoid cascading delete
+                .HasMany(t => t.TaskStatusDetails)  // A Task can have many TaskStatusDetails
+                .WithOne()  // Each TaskStatusDetail is related to one Task
+                .HasForeignKey(detail => detail.TaskID)  // Foreign key in TaskStatusDetail is TaskID
+                .OnDelete(DeleteBehavior.Cascade);  // If a Task is deleted, its associated TaskStatusDetails should be deleted too
 
-            // Configure Tasks AssignedToUser foreign key relationship
-            modelBuilder.Entity<Tasks>()
-                .HasOne(t => t.AssignedToUser)
-                .WithMany() // This assumes the user has many tasks assigned
-                .HasForeignKey(t => t.AssignedTo)
-                .OnDelete(DeleteBehavior.Restrict);  // Use Restrict to avoid cascading delete
-
-            // Configure TaskStatusDetail User foreign key relationship
+            // Configure the relationship between TaskStatusDetail and TaskStatus
             modelBuilder.Entity<TaskStatusDetail>()
-                .HasOne(tsd => tsd.User)
-                .WithMany() // This assumes the user has many task status details
-                .HasForeignKey(tsd => tsd.UserID)
-                .OnDelete(DeleteBehavior.Restrict);
+                .HasOne(detail => detail.TaskStatus)  // A TaskStatusDetail is related to one TaskStatus
+                .WithMany()  // A TaskStatus can have many TaskStatusDetails
+                .HasForeignKey(detail => detail.TaskStatusID)  // Foreign key in TaskStatusDetail is TaskStatusID
+                .OnDelete(DeleteBehavior.Restrict);  // Do not delete TaskStatus when TaskStatusDetail is deleted
+
+            // Configure the relationship between TaskStatusDetail and User
+            modelBuilder.Entity<TaskStatusDetail>()
+                .HasOne(detail => detail.User)  // A TaskStatusDetail is related to one User
+                .WithMany()  // A User can have many TaskStatusDetails
+                .HasForeignKey(detail => detail.UserID)  // Foreign key in TaskStatusDetail is UserID
+                .OnDelete(DeleteBehavior.Restrict);  // Do not delete User when TaskStatusDetail is deleted
+
+            // Configure the relationship between Tasks and CreatedByUser
+            modelBuilder.Entity<Tasks>()
+                .HasOne(t => t.CreatedByUser)  // Each Task is created by one user
+                .WithMany()  // A User can create many Tasks
+                .HasForeignKey(t => t.CreatedBy)  // Foreign key in Task is CreatedBy
+                .OnDelete(DeleteBehavior.Restrict);  // Restrict delete behavior
+
+            // Configure the relationship between Tasks and AssignedToUser
+            modelBuilder.Entity<Tasks>()
+                .HasOne(t => t.AssignedToUser)  // Each Task is assigned to one user
+                .WithMany()  // A User can be assigned many Tasks
+                .HasForeignKey(t => t.AssignedTo)  // Foreign key in Task is AssignedTo
+                .OnDelete(DeleteBehavior.Restrict);  // Restrict delete behavi
+
+            //// Configure Tasks CreatedByUser foreign key relationship
+            //modelBuilder.Entity<Tasks>()
+            //    .HasOne(t => t.CreatedByUser)
+            //    .WithMany() // This assumes the user has many tasks created
+            //    .HasForeignKey(t => t.CreatedBy)
+            //    .OnDelete(DeleteBehavior.Restrict);  // Use Restrict to avoid cascading delete
+
+            //// Configure Tasks AssignedToUser foreign key relationship
+            //modelBuilder.Entity<Tasks>()
+            //    .HasOne(t => t.AssignedToUser)
+            //    .WithMany() // This assumes the user has many tasks assigned
+            //    .HasForeignKey(t => t.AssignedTo)
+            //    .OnDelete(DeleteBehavior.Restrict);  // Use Restrict to avoid cascading delete
+
+            //// Configure TaskStatusDetail User foreign key relationship
+            //modelBuilder.Entity<TaskStatusDetail>()
+            //    .HasOne(tsd => tsd.User)
+            //    .WithMany() // This assumes the user has many task status details
+            //    .HasForeignKey(tsd => tsd.UserID)
+            //    .OnDelete(DeleteBehavior.Restrict);
+
+            //// Configure Tasks to TaskStatusDetails relationship
+            //modelBuilder.Entity<Tasks>()
+            //    .HasMany(t => t.TaskStatusDetails)
+            //    .WithOne()
+            //    .HasForeignKey(tsd => tsd.TaskID)
+            //    .OnDelete(DeleteBehavior.Cascade); // Or use Restrict if cascading delete is not desired
+
 
             modelBuilder.Entity<ClientLocations>().HasData(
                 new ClientLocations() { ClientLocationID = 1, ClientLocationName = "Boston" },
