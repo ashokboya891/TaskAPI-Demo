@@ -62,35 +62,6 @@ namespace ApiForAngular.ApplicationDbContext
                 .HasForeignKey(t => t.AssignedTo)  // Foreign key in Task is AssignedTo
                 .OnDelete(DeleteBehavior.Restrict);  // Restrict delete behavi
 
-            //// Configure Tasks CreatedByUser foreign key relationship
-            //modelBuilder.Entity<Tasks>()
-            //    .HasOne(t => t.CreatedByUser)
-            //    .WithMany() // This assumes the user has many tasks created
-            //    .HasForeignKey(t => t.CreatedBy)
-            //    .OnDelete(DeleteBehavior.Restrict);  // Use Restrict to avoid cascading delete
-
-            //// Configure Tasks AssignedToUser foreign key relationship
-            //modelBuilder.Entity<Tasks>()
-            //    .HasOne(t => t.AssignedToUser)
-            //    .WithMany() // This assumes the user has many tasks assigned
-            //    .HasForeignKey(t => t.AssignedTo)
-            //    .OnDelete(DeleteBehavior.Restrict);  // Use Restrict to avoid cascading delete
-
-            //// Configure TaskStatusDetail User foreign key relationship
-            //modelBuilder.Entity<TaskStatusDetail>()
-            //    .HasOne(tsd => tsd.User)
-            //    .WithMany() // This assumes the user has many task status details
-            //    .HasForeignKey(tsd => tsd.UserID)
-            //    .OnDelete(DeleteBehavior.Restrict);
-
-            //// Configure Tasks to TaskStatusDetails relationship
-            //modelBuilder.Entity<Tasks>()
-            //    .HasMany(t => t.TaskStatusDetails)
-            //    .WithOne()
-            //    .HasForeignKey(tsd => tsd.TaskID)
-            //    .OnDelete(DeleteBehavior.Cascade); // Or use Restrict if cascading delete is not desired
-
-
             modelBuilder.Entity<ClientLocations>().HasData(
                 new ClientLocations() { ClientLocationID = 1, ClientLocationName = "Boston" },
                 new ClientLocations() { ClientLocationID = 2, ClientLocationName = "New Delhi" },
