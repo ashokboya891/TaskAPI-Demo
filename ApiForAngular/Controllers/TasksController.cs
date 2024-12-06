@@ -30,75 +30,210 @@ namespace ApiForAngular.Controllers
             this.applicationUserManager = applicationUserManager;
             this._logger = logger;
         }
+
+        [HttpPut]
+        [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+        [Route("/api/updatetaskstatus")]
+       
+        public IActionResult UpdateTaskStatus([FromBody] TaskStatusDto taskStatusDetail)
+        {
+            if (taskStatusDetail == null || taskStatusDetail.TaskID <= 0 || taskStatusDetail.TaskStatusID <= 0)
+            {
+                return BadRequest(new { Message = "Invalid data submitted." });
+            }
+
+            // Insert TaskStatusDetail record
+            taskStatusDetail.UserID = User.Identity.Name; // Assuming the user ID is stored in the identity
+            taskStatusDetail.StatusUpdationDateTimeString = DateTime.Now.ToString("dd/MM/yyyy");
+
+            var taskStatusDetailEntity = new TaskStatusDetail
+            {
+                TaskID = taskStatusDetail.TaskID,
+                TaskStatusID = taskStatusDetail.TaskStatusID,
+                Description = taskStatusDetail.Description,
+                UserID =Guid.Parse(taskStatusDetail.UserID),
+                StatusUpdationDateTime = DateTime.Now,
+                StatusUpdationDateTimeString = taskStatusDetail.StatusUpdationDateTimeString
+            };
+
+            // Add to database
+            db.TaskStatusDetails.Add(taskStatusDetailEntity);
+
+            // Update the existing task
+            var existingTask = db.Tasks.FirstOrDefault(t => t.TaskID == taskStatusDetail.TaskID);
+            if (existingTask == null)
+            {
+                return NotFound(new { Message = "Task not found." });
+            }
+
+            existingTask.LastUpdatedOn = DateTime.Now;
+            existingTask.CurrentStatus = db.TaskStatusesTbl.FirstOrDefault(ts => ts.TaskStatusID == taskStatusDetail.TaskStatusID)?.TaskStatusName;
+            existingTask.CurrentTaskStatusID = taskStatusDetail.TaskStatusID;
+
+            db.SaveChanges();
+
+            return Ok(new { Message = "Task status updated successfully." });
+        }
+
+        [HttpGet]
+        [Route("/api/tasks/searchbytaskid/{TaskID}")]
+        [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+        public IActionResult GetByTaskID(int TaskID)
+        {
+            //Get task from database
+            Tasks task = db.Tasks
+                .Include(temp => temp.CreatedByUser)
+                .Include(temp => temp.AssignedToUser)
+                .Include(temp => temp.Project).ThenInclude(temp => temp.ClientLocation)
+                .Include(temp => temp.TaskStatusDetails)
+                .Include(temp => temp.TaskPriority)
+                .Where(temp => temp.TaskID == TaskID)
+                .FirstOrDefault();
+
+            if (task != null)
+            {
+                //Date conversion
+                task.CreatedOnString = task.CreatedOn.ToString("dd/MM/yyyy");
+                task.LastUpdatedOnString = task.LastUpdatedOn.ToString("dd/MM/yyyy");
+
+                foreach (var item2 in task.TaskStatusDetails)
+                {
+                    item2.StatusUpdationDateTimeString = item2.StatusUpdationDateTime.ToString("dd/MM/yyyy");
+                }
+
+                return Ok(task);
+            }
+            else
+                return NoContent();
+        }
+
         [HttpGet]
         [Route("/api/tasks")]
         [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
         public IActionResult Get()
         {
-            // Extract the current user ID from the authenticated user context
-            string currentUserId = User.Identity.Name;
-
-            // Fetch task statuses from the database
-            List<TaskStatuses> taskStatuses = db.TaskStatusesTbl.ToList();
-
-            // Fetch tasks created by or assigned to the current user
-            List<Tasks> tasks = db.Tasks
-                .Include(task => task.CreatedByUser)
-                .Include(task => task.AssignedToUser)
-                .Include(task => task.Project).ThenInclude(project => project.ClientLocation)
-                .Include(task => task.TaskPriority)
-                .Include(task => task.TaskStatusDetails) // Include TaskStatusDetails
-                    .ThenInclude(detail => detail.TaskStatus) // Include TaskStatus in TaskStatusDetails
-                .Include(task => task.TaskStatusDetails) // Make sure TaskStatusDetails is included twice
-                    .ThenInclude(detail => detail.User) // Include User in TaskStatusDetails
-                .Where(task => task.CreatedBy.ToString() == currentUserId || task.AssignedTo.ToString() == currentUserId)
-                .OrderBy(task => task.TaskPriorityID)
-                .ThenByDescending(task => task.LastUpdatedOn)
-                .ToList();
-
-//            Entity Related Entity Relationship    Delete Behavior
-//Tasks TaskStatusDetails   One - to - Many Cascade(Deletes dependents)
-//TaskStatusDetail TaskStatus  Many - to - One Restrict
-//TaskStatusDetail    User Many-to - One Restrict
-//Tasks   CreatedByUser Many-to - One Restrict
-//Tasks   AssignedToUser Many-to - One Restrict
-
-
-            // Format task data for response
-            foreach (var task in tasks)
-            {
-                task.CreatedOnString = task.CreatedOn.ToString("dd/MM/yyyy");
-                task.LastUpdatedOnString = task.LastUpdatedOn.ToString("dd/MM/yyyy");
-
-                // Sort task status details by descending order of ID
-                task.TaskStatusDetails = task.TaskStatusDetails.OrderByDescending(detail => detail.TaskStatusDetailID).ToList();
-
-                // Convert status update datetime to formatted string
-                foreach (var detail in task.TaskStatusDetails)
-                {
-                    detail.StatusUpdationDateTimeString = detail.StatusUpdationDateTime.ToString("dd/MM/yyyy");
-                }
-            }
-
-            // Group tasks by their current status
-            List<GroupedTask> groupedTasks = new List<GroupedTask>();
-            foreach (var status in taskStatuses)
-            {
-                GroupedTask groupedTask = new GroupedTask
-                {
-                    TaskStatusName = status.TaskStatusName,
-                    Tasks = tasks.Where(task => task.CurrentStatus == status.TaskStatusName).ToList()
-                };
-                if (groupedTask.Tasks.Count > 0)
-                {
-                    groupedTasks.Add(groupedTask);
-                }
-            }
-
-            return Ok(groupedTasks);
+    // Extract the current user ID from the authenticated user context
+    string currentUserId = User.Identity.Name;
+    
+    // Fetch task statuses from the database
+    List<TaskStatuses> taskStatuses = db.TaskStatusesTbl.ToList();
+    
+    // Fetch tasks created by or assigned to the current user
+    List<Tasks> tasks = db.Tasks
+        .Include(task => task.CreatedByUser)
+        .Include(task => task.AssignedToUser)
+        .Include(task => task.Project).ThenInclude(project => project.ClientLocation)
+        .Include(task => task.TaskPriority)
+        .Include(task => task.TaskStatusDetails) // Include TaskStatusDetails
+            .ThenInclude(detail => detail.TaskStatus) // Include TaskStatus in TaskStatusDetails
+        .Include(task => task.TaskStatusDetails) // Make sure TaskStatusDetails is included twice
+            .ThenInclude(detail => detail.User) // Include User in TaskStatusDetails
+        .Where(task => task.CreatedBy.ToString() == currentUserId || task.AssignedTo.ToString() == currentUserId)
+        .OrderBy(task => task.TaskPriorityID)
+        .ThenByDescending(task => task.LastUpdatedOn)
+        .ToList();
+    
+    // Format task data for response
+    foreach (var task in tasks)
+    {
+        task.CreatedOnString = task.CreatedOn.ToString("dd/MM/yyyy");
+        task.LastUpdatedOnString = task.LastUpdatedOn.ToString("dd/MM/yyyy");
+        
+        // Sort task status details by descending order of ID
+        task.TaskStatusDetails = task.TaskStatusDetails.OrderByDescending(detail => detail.TaskStatusDetailID).ToList();
+        
+        // Convert status update datetime to formatted string
+        foreach (var detail in task.TaskStatusDetails)
+        {
+            detail.StatusUpdationDateTimeString = detail.StatusUpdationDateTime.ToString("dd/MM/yyyy");
         }
+    }
+    
+    // Group tasks by their current status
+    List<GroupedTask> groupedTasks = new List<GroupedTask>();
+    foreach (var status in taskStatuses)
+    {
+        GroupedTask groupedTask = new GroupedTask
+        {
+            TaskStatusName = status.TaskStatusName,
+            Tasks = tasks.Where(task => task.CurrentStatus == status.TaskStatusName).ToList()
+        };
+        if (groupedTask.Tasks.Count > 0)
+        {
+            groupedTasks.Add(groupedTask);
+        }
+    }
+    
+    return Ok(groupedTasks);
+}
 
+    //    [HttpGet]
+    //    [Route("/api/tasks")]
+    //    [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+    //    public IActionResult Get()
+    //    {
+    //        // Extract the current user ID from the authenticated user context
+    //        string currentUserId = User.Identity.Name;
+    //        // Initialize the response list for grouped tasks
+    //        List<GroupedTask> groupedTasks = new List<GroupedTask>();
+    //        // Fetch task statuses from the database
+    //        List<TaskStatuses> taskStatuses = db.TaskStatusesTbl.ToList();
+    //        // Fetch tasks created by or assigned to the current user
+    //        List<Tasks> tasks = db.Tasks
+    //.Include(task => task.CreatedByUser)
+    //.Include(task => task.AssignedToUser)
+    //.Include(task => task.Project).ThenInclude(project => project.ClientLocation)
+    //.Include(task => task.TaskPriority)
+    //.Include(task => task.TaskStatusDetails)
+    //    .ThenInclude(detail => detail.task)
+    //.Include(task => task.TaskStatusDetails)
+    //    .ThenInclude(detail => detail.User)
+    //.Where(task => task.CreatedBy.ToString() == currentUserId || task.AssignedTo.ToString() == currentUserId)
+    //.OrderBy(task => task.TaskPriorityID)
+    //.ThenByDescending(task => task.LastUpdatedOn)
+    //.ToList();
 
+    //        //List<Tasks> tasks = db.Tasks
+    //        //    .Include(task => task.CreatedByUser)
+    //        //    .Include(task => task.AssignedToUser)
+    //        //    .Include(task => task.Project).ThenInclude(project => project.ClientLocation)
+    //        //    .Include(task => task.TaskStatusDetails)
+    //        //    .Include(task => task.TaskPriority)
+    //        //    .Where(task => task.CreatedBy.ToString() == currentUserId || task.AssignedTo.ToString() == currentUserId)
+    //        //    .OrderBy(task => task.TaskPriorityID)
+    //        //    .ThenByDescending(task => task.LastUpdatedOn)
+    //        //    .ToList();
+    //        // Format task data for response
+    //        foreach (var task in tasks)
+    //        {
+    //            // Convert datetime properties to formatted strings
+    //            task.CreatedOnString = task.CreatedOn.ToString("dd/MM/yyyy");
+    //            task.LastUpdatedOnString = task.LastUpdatedOn.ToString("dd/MM/yyyy");
+    //            // Sort task status details by descending order of ID
+    //            task.TaskStatusDetails = task.TaskStatusDetails.OrderByDescending(detail => detail.TaskStatusDetailID).ToList();
+    //            // Convert status update datetime to formatted string
+    //            foreach (var detail in task.TaskStatusDetails)
+    //            {
+    //                detail.StatusUpdationDateTimeString = detail.StatusUpdationDateTime.ToString("dd/MM/yyyy");
+    //            }
+    //        }
+    //        // Group tasks by their current status
+    //        foreach (var status in taskStatuses)
+    //        {
+    //            GroupedTask groupedTask = new GroupedTask
+    //            {
+    //                TaskStatusName = status.TaskStatusName,
+    //                Tasks = tasks.Where(task => task.CurrentStatus == status.TaskStatusName).ToList()
+    //            };
+    //            // Add to grouped tasks if there are tasks under this status
+    //            if (groupedTask.Tasks.Count > 0)
+    //            {
+    //                groupedTasks.Add(groupedTask);
+    //            }
+    //        }
+    //        // Return grouped tasks as response
+    //        return Ok(groupedTasks);
+    //    }
         [HttpPost]
         [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
         [Route("/api/createtask")]
@@ -218,28 +353,28 @@ namespace ApiForAngular.Controllers
     }
 }
 
-//    [HttpPost]
-//    [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
-//    [Route("/api/createtask")]
-//    public IActionResult Post([FromBody] Tasks task)
-//    {
-//        task.Project = null;
-//        task.CreatedByUser = null;
-//        task.AssignedToUser = null;
-//        task.TaskPriority = null;
-//        task.TaskStatusDetails = null;
-//        task.CreatedOn = DateTime.Now;
-//        task.LastUpdatedOn = DateTime.Now;
-//        task.CurrentStatus = "Holding";
-//        task.CurrentTaskStatusID = 1;
-//        task.CreatedOnString = task.CreatedOn.ToString("dd/MM/yyyy");
-//        task.LastUpdatedOnString = task.LastUpdatedOn.ToString("dd/MM/yyyy");
-//        // Assuming the User.Identity.Name represents the username, and you need the corresponding Guid.
-//        var user = db.Users.FirstOrDefault(u => u.UserName == User.Identity.Name);
-//        if (user != null)
-//        {
-//            task.CreatedBy = user.Id; // Assign the user's Guid to CreatedBy
-//        }
+        //    [HttpPost]
+        //    [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+        //    [Route("/api/createtask")]
+        //    public IActionResult Post([FromBody] Tasks task)
+        //    {
+        //        task.Project = null;
+        //        task.CreatedByUser = null;
+        //        task.AssignedToUser = null;
+        //        task.TaskPriority = null;
+        //        task.TaskStatusDetails = null;
+        //        task.CreatedOn = DateTime.Now;
+        //        task.LastUpdatedOn = DateTime.Now;
+        //        task.CurrentStatus = "Holding";
+        //        task.CurrentTaskStatusID = 1;
+        //        task.CreatedOnString = task.CreatedOn.ToString("dd/MM/yyyy");
+        //        task.LastUpdatedOnString = task.LastUpdatedOn.ToString("dd/MM/yyyy");
+        //        // Assuming the User.Identity.Name represents the username, and you need the corresponding Guid.
+        //        var user = db.Users.FirstOrDefault(u => u.UserName == User.Identity.Name);
+        //        if (user != null)
+        //        {
+        //            task.CreatedBy = user.Id; // Assign the user's Guid to CreatedBy
+        //        }
 
 
 

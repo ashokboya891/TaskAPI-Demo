@@ -56,7 +56,7 @@ namespace ApiForAngular.Models
     //public int CurrentTaskStatusID { get; set; }
     //[NotMapped]
     //public string? CreatedOnString { get; set; } // Make nullable
-    //[NotMapped]
+    //[NotMapped]s
     //public string? LastUpdatedOnString { get; set; } // Make nullable
     //public virtual Project? Project { get; set; }
     //public virtual TaskPriority? TaskPriority { get; set; }
